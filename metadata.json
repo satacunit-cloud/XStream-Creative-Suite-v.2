@@ -1,0 +1,5 @@
+{
+  "name": "XStream Creative Suite",
+  "description": "An AI-powered suite for creative content generation. Features a Creative Assistant for generating images, text, and lyrics with advanced controls; Face, Clothing Swap, and Background Remover tools; and a library to view all your creations.",
+  "requestFramePermissions": []
+}
