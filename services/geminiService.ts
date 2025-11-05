@@ -1,17 +1,38 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-// FIX: Add global window declaration for aistudio to satisfy TypeScript.
+// Fix: Add window.aistudio types for Veo API key selection flow.
 declare global {
-  interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
+    interface Window {
+        aistudio: {
+            hasSelectedApiKey: () => Promise<boolean>;
+            openSelectKey: () => Promise<void>;
+        };
+    }
 }
 
-// As per guidelines, the API key is sourced from environment variables.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+// A lazy-loaded instance of the GoogleGenAI client.
+let ai: GoogleGenAI | null = null;
+
+/**
+ * Gets a singleton instance of the GoogleGenAI client.
+ * This function will lazy-initialize the client on first use, preventing a startup
+ * crash if the API_KEY environment variable is not set in the deployment environment.
+ * @returns An initialized GoogleGenAI client.
+ * @throws {Error} if the API_KEY environment variable is not set.
+ */
+const getAi = (): GoogleGenAI => {
+    if (!ai) {
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            // This error will be caught by the try/catch blocks in the UI components,
+            // displaying a user-friendly message instead of a blank screen.
+            throw new Error("API_KEY environment variable is not configured in Vercel project settings.");
+        }
+        ai = new GoogleGenAI({ apiKey });
+    }
+    return ai;
+};
+
 
 // --- TYPE DEFINITIONS ---
 export interface ImageFile {
@@ -73,7 +94,7 @@ ${buildPromptBoilerplate(controls)}
     
     parts.unshift({ text: promptText });
 
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-pro',
         contents: { parts },
     });
@@ -104,7 +125,7 @@ ${buildPromptBoilerplate(controls)}
     
     parts.unshift({ text: promptText });
 
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash',
         contents: { parts },
     });
@@ -123,7 +144,7 @@ export const generateImage = async (
     const allImages = sourceImage ? [sourceImage, ...assets] : assets;
     allImages.forEach(img => parts.push(imageToPart(img)));
     
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts },
         config: {
@@ -151,7 +172,7 @@ export async function* generateTextStream(
     if (sourceImage) parts.push(imageToPart(sourceImage));
     assets.forEach(img => parts.push(imageToPart(img)));
 
-    const response = await ai.models.generateContentStream({
+    const response = await getAi().models.generateContentStream({
         model: 'gemini-2.5-flash',
         contents: { parts },
     });
@@ -164,7 +185,7 @@ export async function* generateLyricsStream(
     topic: string,
     genre: string,
 ): AsyncGenerator<string> {
-    const response = await ai.models.generateContentStream({
+    const response = await getAi().models.generateContentStream({
         model: "gemini-2.5-flash",
         contents: `Write song lyrics about "${topic}".`,
         config: {
@@ -176,55 +197,11 @@ export async function* generateLyricsStream(
     }
 };
 
-// FIX: Add missing functions and constants for CharacterAnimator component.
-export const VEO_API_KEY_ERROR_MESSAGE = 'Requested entity was not found.';
-
-export const checkHasApiKey = async (): Promise<boolean> => {
-    return window.aistudio.hasSelectedApiKey();
-};
-
-export const openSelectKey = async (): Promise<void> => {
-    await window.aistudio.openSelectKey();
-};
-
-export const animateCharacter = async (
-    characterImage: ImageFile,
-    motion: string,
-): Promise<{ videoUrl: string }> => {
-    // Guidelines: Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key from the dialog.
-    const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
-    let operation = await localAi.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: motion,
-        image: {
-            imageBytes: characterImage.data,
-            mimeType: characterImage.type,
-        },
-        config: {
-            numberOfVideos: 1,
-            resolution: '720p',
-            aspectRatio: '9:16'
-        }
-    });
-
-    while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await localAi.operations.getVideosOperation({ operation: operation });
-    }
-
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) {
-        throw new Error("Video generation failed or did not return a download link.");
-    }
-    return { videoUrl: downloadLink };
-};
-
 export const performFaceSwap = async (
     sourceImage: ImageFile,
     faceImage: ImageFile,
 ): Promise<string> => {
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
             parts: [
@@ -250,7 +227,7 @@ export const performClothingSwap = async (
     personImage: ImageFile,
     clothingImage: ImageFile,
 ): Promise<string> => {
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
             parts: [
@@ -275,7 +252,7 @@ export const performClothingSwap = async (
 export const performBackgroundRemoval = async (
     image: ImageFile,
 ): Promise<string> => {
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
             parts: [
@@ -300,7 +277,7 @@ export const compositeWithGeneratedBackground = async (
     foreground: ImageFile,
     prompt: string,
 ): Promise<string> => {
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
             parts: [
@@ -325,7 +302,7 @@ export const compositeWithUploadedBackground = async (
     foreground: ImageFile,
     background: ImageFile,
 ): Promise<string> => {
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
             parts: [
@@ -345,4 +322,64 @@ export const compositeWithUploadedBackground = async (
         }
     }
     throw new Error('Background composition failed to generate an image.');
+};
+
+// Fix: Add VEO_API_KEY_ERROR_MESSAGE for API key error handling.
+export const VEO_API_KEY_ERROR_MESSAGE = "Requested entity was not found.";
+
+// Fix: Add checkHasApiKey for Veo API key selection flow.
+export const checkHasApiKey = async (): Promise<boolean> => {
+    if (window.aistudio) {
+        return await window.aistudio.hasSelectedApiKey();
+    }
+    console.error('window.aistudio is not available.');
+    return false;
+};
+
+// Fix: Add openSelectKey for Veo API key selection flow.
+export const openSelectKey = async (): Promise<void> => {
+    if (window.aistudio) {
+        await window.aistudio.openSelectKey();
+    } else {
+        console.error('window.aistudio is not available.');
+    }
+};
+
+// Fix: Add animateCharacter function for video generation.
+export const animateCharacter = async (
+    characterImage: ImageFile,
+    motion: string
+): Promise<{ videoUrl: string }> => {
+    // Per Veo guidelines, create a new instance to ensure the latest key is used.
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        throw new Error("API_KEY environment variable is not configured.");
+    }
+    const videoAi = new GoogleGenAI({ apiKey });
+
+    let operation = await videoAi.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: motion,
+        image: {
+            imageBytes: characterImage.data,
+            mimeType: characterImage.type,
+        },
+        config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: '9:16' // Best for single characters
+        }
+    });
+
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await videoAi.operations.getVideosOperation({ operation: operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) {
+        throw new Error('Video generation failed to produce a download link.');
+    }
+
+    return { videoUrl: downloadLink };
 };
