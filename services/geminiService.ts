@@ -12,14 +12,13 @@ let ai: GoogleGenAI | null = null;
  */
 const getAi = (): GoogleGenAI => {
     if (!ai) {
-        // Fix: Use process.env.API_KEY as per coding guidelines to resolve the TypeScript error and align with project standards.
-        // The API key is read from the `process.env.API_KEY` environment variable.
+        // Fix: Use process.env.API_KEY to access the environment variable as per the guidelines.
         const apiKey = process.env.API_KEY;
 
         if (!apiKey) {
             // This error will be caught by UI components and displayed gracefully.
             throw new Error(
-                'Configuration Error: API_KEY is not available. Ensure your execution environment has the API_KEY environment variable set.'
+                'Configuration Error: API_KEY is not available. Ensure your environment is configured with an environment variable named API_KEY.'
             );
         }
         ai = new GoogleGenAI({ apiKey });
