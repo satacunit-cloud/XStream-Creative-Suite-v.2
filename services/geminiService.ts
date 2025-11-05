@@ -1,33 +1,26 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-// Fix: Add window.aistudio types for Veo API key selection flow.
-declare global {
-    interface Window {
-        aistudio: {
-            hasSelectedApiKey: () => Promise<boolean>;
-            openSelectKey: () => Promise<void>;
-        };
-    }
-}
-
 // A lazy-loaded instance of the GoogleGenAI client.
 let ai: GoogleGenAI | null = null;
 
 /**
  * Gets a singleton instance of the GoogleGenAI client.
- * This function will lazy-initialize the client on first use, preventing a startup
- * crash if the API_KEY environment variable is not set in the deployment environment.
+ * This function will lazy-initialize the client on first use and provides a
+ * safe way to access the API key from the environment.
  * @returns An initialized GoogleGenAI client.
- * @throws {Error} if the API_KEY environment variable is not set.
+ * @throws {Error} if the API_KEY environment variable is not available.
  */
 const getAi = (): GoogleGenAI => {
     if (!ai) {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) {
-            // This error will be caught by the try/catch blocks in the UI components,
-            // displaying a user-friendly message instead of a blank screen.
-            throw new Error("API_KEY environment variable is not configured in Vercel project settings.");
+        // This guard prevents a ReferenceError crash in browser environments where `process` is not defined.
+        // Vercel static deployments do not provide `process.env` to the client-side.
+        if (typeof process === 'undefined' || !process.env || !process.env.API_KEY) {
+            // This error will be caught by UI components and displayed gracefully.
+            throw new Error(
+                'Configuration Error: API_KEY is not available. Ensure your hosting environment (like Vercel) is configured to expose environment variables to the client-side code.'
+            );
         }
+        const apiKey = process.env.API_KEY;
         ai = new GoogleGenAI({ apiKey });
     }
     return ai;
@@ -322,64 +315,4 @@ export const compositeWithUploadedBackground = async (
         }
     }
     throw new Error('Background composition failed to generate an image.');
-};
-
-// Fix: Add VEO_API_KEY_ERROR_MESSAGE for API key error handling.
-export const VEO_API_KEY_ERROR_MESSAGE = "Requested entity was not found.";
-
-// Fix: Add checkHasApiKey for Veo API key selection flow.
-export const checkHasApiKey = async (): Promise<boolean> => {
-    if (window.aistudio) {
-        return await window.aistudio.hasSelectedApiKey();
-    }
-    console.error('window.aistudio is not available.');
-    return false;
-};
-
-// Fix: Add openSelectKey for Veo API key selection flow.
-export const openSelectKey = async (): Promise<void> => {
-    if (window.aistudio) {
-        await window.aistudio.openSelectKey();
-    } else {
-        console.error('window.aistudio is not available.');
-    }
-};
-
-// Fix: Add animateCharacter function for video generation.
-export const animateCharacter = async (
-    characterImage: ImageFile,
-    motion: string
-): Promise<{ videoUrl: string }> => {
-    // Per Veo guidelines, create a new instance to ensure the latest key is used.
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        throw new Error("API_KEY environment variable is not configured.");
-    }
-    const videoAi = new GoogleGenAI({ apiKey });
-
-    let operation = await videoAi.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: motion,
-        image: {
-            imageBytes: characterImage.data,
-            mimeType: characterImage.type,
-        },
-        config: {
-            numberOfVideos: 1,
-            resolution: '720p',
-            aspectRatio: '9:16' // Best for single characters
-        }
-    });
-
-    while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await videoAi.operations.getVideosOperation({ operation: operation });
-    }
-
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) {
-        throw new Error('Video generation failed to produce a download link.');
-    }
-
-    return { videoUrl: downloadLink };
 };
