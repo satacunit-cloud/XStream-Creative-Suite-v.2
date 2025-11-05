@@ -12,15 +12,16 @@ let ai: GoogleGenAI | null = null;
  */
 const getAi = (): GoogleGenAI => {
     if (!ai) {
-        // This guard prevents a ReferenceError crash in browser environments where `process` is not defined.
-        // Vercel static deployments do not provide `process.env` to the client-side.
-        if (typeof process === 'undefined' || !process.env || !process.env.API_KEY) {
+        // Fix: Use process.env.API_KEY as per coding guidelines to resolve the TypeScript error and align with project standards.
+        // The API key is read from the `process.env.API_KEY` environment variable.
+        const apiKey = process.env.API_KEY;
+
+        if (!apiKey) {
             // This error will be caught by UI components and displayed gracefully.
             throw new Error(
-                'Configuration Error: API_KEY is not available. Ensure your hosting environment (like Vercel) is configured to expose environment variables to the client-side code.'
+                'Configuration Error: API_KEY is not available. Ensure your execution environment has the API_KEY environment variable set.'
             );
         }
-        const apiKey = process.env.API_KEY;
         ai = new GoogleGenAI({ apiKey });
     }
     return ai;
