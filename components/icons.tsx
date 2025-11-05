@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Common props for icons, allows passing className, etc.
@@ -90,6 +89,13 @@ export const MusicNoteIcon: React.FC<IconProps> = (props) => (
     </svg>
 );
 
+// FIX: Add missing MotionIcon
+export const MotionIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+    </svg>
+);
+
 export const CompareIcon: React.FC<IconProps> = (props) => (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 17.25V6.75m0 10.5a5.25 5.25 0 005.25-5.25H6.75a5.25 5.25 0 005.25 5.25z" />
@@ -131,14 +137,6 @@ export const DotsVerticalIcon: React.FC<IconProps> = (props) => (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
     </svg>
-);
-
-// FIX: Add and export the missing MotionIcon.
-export const MotionIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
-  </svg>
 );
 
 export const UndoIcon: React.FC<IconProps> = (props) => (

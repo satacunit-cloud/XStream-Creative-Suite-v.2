@@ -1,78 +1,26 @@
-import React, { useState, useRef } from 'react';
-import { UploadIcon, CloseIcon, MotionIcon, SparklesIcon } from './icons';
-import { ImageFile, openSelectKey } from '../services/geminiService';
 
-type ApiKeyStatus = 'checking' | 'not-selected' | 'selected';
+import React, { useState, useRef, useEffect } from 'react';
+import { MotionIcon } from './icons';
+import { ImageFile } from '../services/geminiService';
+import { ImageDropzone, fileToImageFile } from './ImageDropzone';
 
 interface CharacterAnimatorInputProps {
   isLoading: boolean;
   onAnimate: (characterImage: ImageFile, motion: string) => void;
-  apiKeyStatus: ApiKeyStatus;
-  setApiKeyStatus: (status: ApiKeyStatus) => void;
+  initialImage: {file: File, url: string} | null;
 }
 
-const fileToImageFile = (file: File): Promise<ImageFile> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            if (event.target && typeof event.target.result === 'string') {
-                const base64 = event.target.result.split(',')[1];
-                resolve({ data: base64, type: file.type });
-            } else {
-                reject(new Error('Failed to read file.'));
-            }
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-};
 
-const ImageUploader: React.FC<{
-    label: string;
-    imagePreview: string | null;
-    onImageChange: (file: File) => void;
-    onImageRemove: () => void;
-}> = ({ label, imagePreview, onImageChange, onImageRemove }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            onImageChange(file);
-        }
-    };
-
-    const handleRemove = () => {
-        onImageRemove();
-        if (inputRef.current) inputRef.current.value = "";
-    };
-
-    return (
-        <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-600 rounded-lg w-full h-full">
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">{label}</h3>
-            {imagePreview ? (
-                <div className="relative">
-                    <img src={imagePreview} alt="Preview" className="h-40 w-40 object-cover rounded-md" />
-                    <button type="button" onClick={handleRemove} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-600 rounded-full p-1 text-white" title="Remove image">
-                        <CloseIcon className="h-4 w-4"/>
-                    </button>
-                </div>
-            ) : (
-                <button type="button" onClick={() => inputRef.current?.click()} className="flex flex-col items-center text-gray-400 hover:text-white h-40 w-40 justify-center">
-                    <UploadIcon className="h-8 w-8 mb-2" />
-                    <span>Upload Image</span>
-                    <input type="file" accept="image/*" ref={inputRef} onChange={handleFileChange} className="hidden" />
-                </button>
-            )}
-        </div>
-    );
-};
-
-
-export const CharacterAnimatorInput: React.FC<CharacterAnimatorInputProps> = ({ isLoading, onAnimate, apiKeyStatus, setApiKeyStatus }) => {
+export const CharacterAnimatorInput: React.FC<CharacterAnimatorInputProps> = ({ isLoading, onAnimate, initialImage }) => {
     const [characterImage, setCharacterImage] = useState<File | null>(null);
     const [characterImagePreview, setCharacterImagePreview] = useState<string | null>(null);
     const [motion, setMotion] = useState('');
+
+    useEffect(() => {
+        if (initialImage) {
+            handleCharacterImageChange(initialImage.file);
+        }
+    }, [initialImage]);
 
     const handleCharacterImageChange = (file: File) => {
         setCharacterImage(file);
@@ -91,46 +39,18 @@ export const CharacterAnimatorInput: React.FC<CharacterAnimatorInputProps> = ({ 
             onAnimate(characterImageFile, motion);
         }
     };
-    
-    const handleSelectKey = async () => {
-        await openSelectKey();
-        // Assume key selection is successful and optimistically update UI
-        setApiKeyStatus('selected');
-    };
-
-    if (apiKeyStatus === 'checking') {
-        return <div className="text-center p-8">Checking API key status...</div>;
-    }
-    
-    if (apiKeyStatus === 'not-selected') {
-        return (
-             <div className="w-full bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-                <h2 className="text-2xl font-bold text-white mb-4">API Key Required</h2>
-                <p className="text-gray-400 mb-6">
-                    The Character Animator uses a powerful video model (Veo) which requires you to select an API key associated with a billed project. This is a one-time setup.
-                    <br />
-                    For more information, please see the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">billing documentation</a>.
-                </p>
-                <button 
-                    onClick={handleSelectKey}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center mx-auto"
-                >
-                    <SparklesIcon className="h-5 w-5 mr-2" />
-                    Select API Key to Continue
-                </button>
-            </div>
-        );
-    }
 
     return (
         <form onSubmit={handleSubmit} className="w-full bg-gray-800 p-6 rounded-lg shadow-lg space-y-6">
             <h2 className="text-2xl font-bold text-white text-center">Animate a Character</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <ImageUploader 
+                 <ImageDropzone 
                     label="Character Image"
+                    helpText="Upload a clear image of the character you want to animate."
                     imagePreview={characterImagePreview}
                     onImageChange={handleCharacterImageChange}
                     onImageRemove={removeCharacterImage}
+                    className="h-64"
                 />
                 <div className="flex flex-col">
                      <label htmlFor="motion-input" className="text-lg font-semibold text-gray-300 mb-2">Motion Description</label>

@@ -1,29 +1,50 @@
+
 import React, { useState, useEffect } from 'react';
 import { CharacterAnimatorInput } from './CharacterAnimatorInput';
 import { LoadingSpinner } from './LoadingSpinner';
-import { ImageFile, animateCharacter, checkHasApiKey, VEO_API_KEY_ERROR_MESSAGE } from '../services/geminiService';
+import { ImageFile, animateCharacter, checkHasApiKey, VEO_API_KEY_ERROR_MESSAGE, openSelectKey } from '../services/geminiService';
 import { LibraryItem } from '../App';
+import { urlToImageFile } from './ImageDropzone';
+import { SparklesIcon } from './icons';
 
 interface CharacterAnimatorProps {
     onBack: () => void;
     onCreationComplete: (item: LibraryItem) => void;
+    initialImage?: string;
+    onClearInitialImage: () => void;
 }
 
 type ApiKeyStatus = 'checking' | 'not-selected' | 'selected';
 
-export const CharacterAnimator: React.FC<CharacterAnimatorProps> = ({ onBack, onCreationComplete }) => {
+export const CharacterAnimator: React.FC<CharacterAnimatorProps> = ({ onBack, onCreationComplete, initialImage, onClearInitialImage }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [resultUrl, setResultUrl] = useState<string | null>(null);
     const [originalCharacterUrl, setOriginalCharacterUrl] = useState<string | null>(null);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('checking');
+    const [initialImageFile, setInitialImageFile] = useState<{file: File, url: string} | null>(null);
 
      useEffect(() => {
         checkHasApiKey().then(hasKey => {
             setApiKeyStatus(hasKey ? 'selected' : 'not-selected');
         });
     }, []);
+
+    useEffect(() => {
+        if (initialImage) {
+            urlToImageFile(initialImage)
+                .then(({ file }) => {
+                    setInitialImageFile({ file, url: initialImage });
+                })
+                .catch(err => {
+                    console.error("Failed to load initial image:", err);
+                })
+                .finally(() => {
+                    onClearInitialImage();
+                });
+        }
+    }, [initialImage, onClearInitialImage]);
 
     const handleAnimate = async (characterImage: ImageFile, motion: string) => {
         setIsLoading(true);
@@ -64,9 +85,40 @@ export const CharacterAnimator: React.FC<CharacterAnimatorProps> = ({ onBack, on
         setError(null);
         setResultUrl(null);
         setOriginalCharacterUrl(null);
+        setInitialImageFile(null);
+    };
+    
+    const handleSelectKey = async () => {
+        await openSelectKey();
+        // Assume key selection is successful and optimistically update UI
+        setApiKeyStatus('selected');
     };
 
     const renderContent = () => {
+        if (apiKeyStatus === 'checking') {
+            return <div className="text-center p-8">Checking API key status...</div>;
+        }
+        
+        if (apiKeyStatus === 'not-selected') {
+            return (
+                 <div className="w-full bg-gray-800 p-6 rounded-lg shadow-lg text-center">
+                    <h2 className="text-2xl font-bold text-white mb-4">API Key Required</h2>
+                    <p className="text-gray-400 mb-6">
+                        The Character Animator uses a powerful video model (Veo) which requires you to select an API key associated with a billed project. This is a one-time setup.
+                        <br />
+                        For more information, please see the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">billing documentation</a>.
+                    </p>
+                    <button 
+                        onClick={handleSelectKey}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center mx-auto"
+                    >
+                        <SparklesIcon className="h-5 w-5 mr-2" />
+                        Select API Key to Continue
+                    </button>
+                </div>
+            );
+        }
+        
         if (isLoading) {
             return <LoadingSpinner message={loadingMessage} />;
         }
@@ -105,8 +157,7 @@ export const CharacterAnimator: React.FC<CharacterAnimatorProps> = ({ onBack, on
             <CharacterAnimatorInput 
                 isLoading={isLoading} 
                 onAnimate={handleAnimate} 
-                apiKeyStatus={apiKeyStatus}
-                setApiKeyStatus={setApiKeyStatus}
+                initialImage={initialImageFile}
             />
         );
     }

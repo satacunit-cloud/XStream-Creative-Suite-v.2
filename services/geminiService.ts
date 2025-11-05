@@ -1,6 +1,14 @@
-
-
 import { GoogleGenAI, Modality } from "@google/genai";
+
+// FIX: Add global window declaration for aistudio to satisfy TypeScript.
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
 
 // As per guidelines, the API key is sourced from environment variables.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
@@ -168,6 +176,50 @@ export async function* generateLyricsStream(
     }
 };
 
+// FIX: Add missing functions and constants for CharacterAnimator component.
+export const VEO_API_KEY_ERROR_MESSAGE = 'Requested entity was not found.';
+
+export const checkHasApiKey = async (): Promise<boolean> => {
+    return window.aistudio.hasSelectedApiKey();
+};
+
+export const openSelectKey = async (): Promise<void> => {
+    await window.aistudio.openSelectKey();
+};
+
+export const animateCharacter = async (
+    characterImage: ImageFile,
+    motion: string,
+): Promise<{ videoUrl: string }> => {
+    // Guidelines: Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key from the dialog.
+    const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+
+    let operation = await localAi.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: motion,
+        image: {
+            imageBytes: characterImage.data,
+            mimeType: characterImage.type,
+        },
+        config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: '9:16'
+        }
+    });
+
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await localAi.operations.getVideosOperation({ operation: operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) {
+        throw new Error("Video generation failed or did not return a download link.");
+    }
+    return { videoUrl: downloadLink };
+};
+
 export const performFaceSwap = async (
     sourceImage: ImageFile,
     faceImage: ImageFile,
@@ -293,52 +345,4 @@ export const compositeWithUploadedBackground = async (
         }
     }
     throw new Error('Background composition failed to generate an image.');
-};
-
-// FIX: Export functions and constants for API key selection and video generation.
-export const checkHasApiKey = async (): Promise<boolean> => {
-    return await window.aistudio.hasSelectedApiKey();
-};
-
-export const openSelectKey = async (): Promise<void> => {
-    await window.aistudio.openSelectKey();
-};
-
-export const VEO_API_KEY_ERROR_MESSAGE = "Requested entity was not found.";
-
-export const animateCharacter = async (
-    characterImage: ImageFile,
-    motion: string,
-): Promise<{ videoUrl: string }> => {
-    // Per guidelines, create a new instance for Veo models to get the latest key.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    
-    // Using a default portrait aspect ratio suitable for characters.
-    const aspectRatio = '9:16';
-
-    let operation = await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: motion,
-        image: {
-            imageBytes: characterImage.data,
-            mimeType: characterImage.type,
-        },
-        config: {
-            numberOfVideos: 1,
-            resolution: '720p',
-            aspectRatio: aspectRatio,
-        }
-    });
-
-    while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await ai.operations.getVideosOperation({ operation });
-    }
-
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) {
-        throw new Error("Video generation failed or returned no link.");
-    }
-    
-    return { videoUrl: downloadLink };
 };
