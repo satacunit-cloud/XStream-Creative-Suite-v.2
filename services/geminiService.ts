@@ -1,6 +1,3 @@
-// Fix: Added a triple-slash directive to include Vite's client types, resolving the error on `import.meta.env`.
-/// <reference types="vite/client" />
-
 import { GoogleGenAI, Modality } from "@google/genai";
 
 // A lazy-loaded instance of the GoogleGenAI client.
@@ -15,14 +12,13 @@ let ai: GoogleGenAI | null = null;
  */
 const getAi = (): GoogleGenAI => {
     if (!ai) {
-        // This is the correct way to access environment variables in a Vite project.
-        // Vercel requires the `VITE_` prefix to expose a variable to the client-side code.
-        const apiKey = import.meta.env.VITE_API_KEY;
+        // Fix: Per coding guidelines, API key must be obtained from process.env.API_KEY.
+        const apiKey = process.env.API_KEY;
 
         if (!apiKey) {
             // This error will be caught by UI components and displayed gracefully.
             throw new Error(
-                'Configuration Error: API_KEY is not available. Ensure your hosting environment (like Vercel) has an environment variable named `VITE_API_KEY`.'
+                'Configuration Error: API_KEY is not available. Ensure it is set in the environment variables.'
             );
         }
         ai = new GoogleGenAI({ apiKey });

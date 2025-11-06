@@ -156,8 +156,9 @@ export const CreativeAssistant: React.FC<CreativeAssistantProps> = ({ onBack, on
         };
     
         try {
-            const newDetailedPrompt = await generateDetailedPromptFromImage(iterationPrompt, lastImageFile, assetLibrary, sourceAudio, controls);
-            const imageResult = await generateImage(newDetailedPrompt, lastImageFile, assetLibrary, controls.aspectRatio);
+            // FIX: Directly generate the image using the iteration prompt as an editing instruction.
+            // Pass an empty array for assets to avoid confusing the model with old references.
+            const imageResult = await generateImage(iterationPrompt, lastImageFile, [], controls.aspectRatio);
             
             const newHistory = [...imageHistory, imageResult.imageUrl];
             setImageHistory(newHistory);
